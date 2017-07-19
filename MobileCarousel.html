@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="veiwport" content="width=device-width, initial-scale=1.0">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge"> 
+	<title>Document</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+		}
+		html{
+			font-size: 16px;
+		}
+		body{
+			font-size: 2rem;
+		}
+		.carousel {
+			position: relative;
+			width: 100%;
+			height: 300px;
+			overflow: hidden;
+			border-bottom: 11px solid black;
+		}
+		.carousel ul {
+			list-style: none;
+		}
+		.carousel ul li {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+		}
+		.carousel ul li img {
+			width: 100%;			
+		}
+		.circles {
+			position: absolute;
+			left: 50%;
+			bottom: 0;
+			transform: translateX(-50%);
+			z-index: 999;
+			width: 50%;
+			height: 40px;
+			background-color: red;
+		}
+		.circles ul {
+			list-style: none;
+			text-align: center;
+			line-height: 25px;
+		}
+		.circles ul li {
+			display: inline-block;
+			position: relative;
+			margin-right: 10px;
+			width: 25px;
+			height: 25px;
+			border-right: 50%;
+			background-color: gray;
+		}
+		.circles ul li.cur {
+			background-color: blue;
+		}
+	</style>
+</head>
+<body>
+	<div id="carousel" class="carousel">
+		<div class="imagesList">
+			<ul>
+				<li><a href="#"><img src="images/1.jpg" alt=""></a></li>
+				<li><a href="#"><img src="images/2.jpg" alt=""></a></li>
+				<li><a href="#"><img src="images/3.jpg" alt=""></a></li>
+				<li><a href="#"><img src="images/4.jpg" alt=""></a></li>
+				<li><a href="#"><img src="images/5.jpeg" alt=""></a></li>
+			</ul>
+		</div>
+		<div id="circles" class="circles">
+			<ul>
+				<li></li>
+				<li></li>
+				<li></li>
+				<li></li>
+				<li></li>
+			</ul>
+		</div>
+	</div>
+
+	轮播图：
+	1.动态的设置轮播图的高度
+	2.使用C3 的translate 来设置滑动时候的位置
+	3.过渡效果需要加
+	4.根据方向显示滑动的位置
+	5.当手指松开时，判断滑动的值大于50%就过渡到下一页或上一页
+	6.当手指松开时，判断滑动的值小雨50%就回到当前页
+	7.判断一下滑动的距离大于30，滑动的时间小于300，也过渡
+	8.当到头了滑动到第一张
+	定时切换图片
+
+<script>
+	window.onload = function() {
+	    // 得到轮播图里面的li
+	    var carousel = document.querySelector('#carousel');
+	    var imagesLis = document.querySelectorAll('#carousel .imagesList li');
+	    var circleLis = document.querySelectorAll('#circles li');
+
+	    console.log(imagesLis);
+	    // 信号量
+	    var idx = 0; // 当前中间图片
+	    var next = 1; //下一张图
+	    var prev = imagesLis.length - 1; // 上一张
+	    var timer = setInterval(function(){
+	    	showNext();
+	    },3000);
+
+	    //批量给小圆点绑定touch事件
+	    for (var i = 0; i < circleLis.length; i++) {
+	    	(function(i){
+	    		circleLis[i].addEventListener('touchstart', function(){
+	    			clearInterval(timer);
+	    			setCurrentImage(i); //设置当前应该显示第几张
+	    		}, false);
+	    	})(i);
+	    }
+	    function setCurrentImage(_idx) {
+	    	idx = _idx;
+	    	prev = idx - 1;
+	    	if (prev === -1) {
+	    		prev = imagesLis.length - 1;
+	    	}
+	    	next = idx + 1;
+	    	if (next > imagesLis.length - 1) {
+	    		next = 0;
+	    	}
+
+	    	init(); //设置一下当前的图片合适的位置和小圆点合适的位置
+
+	    	clearInterval(timer);
+	    	timer = setInterval(function(){
+	    		showNext();
+	    	}, 3000);
+	    }
+
+	    var windowWidth;
+
+	    // 初始化
+	    init();
+
+	    // 屏幕尺寸改变重新执行初始化
+	    window.onresize = init;
+
+	    function init() {
+	        // 屏幕的宽度
+	        windowWidth = document.documentElement.clientWidth;
+
+	        // 图片的宽度 / 图片的高度 = 窗口的宽度 / 动态的图片的高度 
+
+	        // 设置盒子的高度
+	        carousel.style.height = windowWidth / (1680 / 1050) + "px";
+
+	        // 设置li的默认位置
+	        for (var i = 0; i < imagesLis.length; i++) {
+	            imagesLis[i].style.webkitTransform = "translateX(" + windowWidth + "px)";
+	        }
+	        // 去掉过渡，移动的时候我们希望实时跟随鼠标，而不是有过渡效果
+	        imagesLis[prev].style.transition = "none";
+	        imagesLis[idx].style.transition = "none";
+	        imagesLis[next].style.transition = "none";
+
+	        // 新的位置
+	        changePic();
+	        setPoint();
+
+	    }
+
+	    // 事件监听
+	    carousel.addEventListener("touchstart", touchstartHandler, false);
+	    carousel.addEventListener("touchmove", touchmoveHandler, false);
+	    carousel.addEventListener("touchend", touchendHandler, false);
+
+
+	    var startX, startTime;
+
+	    function touchstartHandler(event) {
+	        // 阻止默认行为
+	        event.preventDefault();
+	        // 手指个数
+	        if (event.touches.length > 1) return;
+
+	        // 记录偏移值
+	        deltaX = event.touches[0].clientX;
+	        startX = event.touches[0].clientX;
+
+	        // 记录时间
+	        startTime = new Date();
+
+	        // 去掉过渡效果
+	        imagesLis[prev].style.transition = "none";
+	        imagesLis[idx].style.transition = "none";
+	        imagesLis[next].style.transition = "none";
+
+	    }
+	    // 手指移动的时候
+	    function touchmoveHandler(event) {
+	        event.preventDefault();
+	        //手指个数
+
+	        if (event.touches.length > 1) return;
+
+	        // 得到坐标X
+	        var clientX = event.touches[0].clientX;
+
+	        // 改变图片的位置
+	        imagesLis[idx].style.webkitTransform = "translateX(" + (clientX - startX) + "px)";
+	        imagesLis[next].style.webkitTransform = "translateX(" + (windowWidth + (clientX - startX)) + "px)";
+	        imagesLis[prev].style.webkitTransform = "translateX(" + (-windowWidth + (clientX - startX)) + "px)";
+	    }
+
+	    // 触摸结束事件
+	    function touchendHandler(event) {
+	    	console.log(event);
+	        event.preventDefault();
+			//判断滑动是否成功
+	        var distance = event.changedTouches[0].clientX - startX;
+			//滑动的时间
+	        var time = new Date() - startTime;
+
+	        //如果你向右边滑动超过了屏幕的一半，或者向右滑动时间小于300毫秒，距离大于30px则认为滑动成功
+	        if (distance >= windowWidth / 2 || (distance > 30 && time < 300)) {
+	        	showPrev();
+	        } else if (distance <= -windowWidth / 2 || (distance < -30 && time < 300)) {
+	        	showNext();
+	        } else {
+	        	//绝对值不到windowWidth/2
+	        	console.log('不成功');
+
+	        	//加上过渡
+	        	imagesLis[prev].style.transition = "all 0.3s ease 0s";
+	        	imagesLis[idx].style.transition = "all 0.3s ease 0s";
+	        	imagesLis[next].style.transition = "all 0.3s ease 0s";
+
+	        	// 移动
+	        	imagesLis[prev].style.webkitTransform = "translateX(" + -windowWidth + "px)";
+	        	imagesLis[idx].style.webkitTransform = "translateX(0px)";
+	        	imagesLis[next].style.webkitTransform = "translateX(" + windowWidth + "px)";
+
+	        	clearInterval(timer);
+	        	timer = setInterval(function(){
+	        		showNext();
+	        	}, 3000);
+	        }
+	    }
+	    function showPrev() {
+	    	console.log('向右滑动成功');
+	    	next = idx;
+	    	idx = prev;
+	    	prev--;
+	    	if (prev < 0) {
+	    		prev = imagesLis.length - 1;
+	    	}
+	    	// 加上过渡
+	    	imagesLis[idx].style.transition = "all 0.3s ease 0s";
+	    	imagesLis[next].style.transition = "all 0.3s ease 0s";
+	    	imagesLis[prev].style.transition = "none";
+
+	    	// 移动
+	    	changePic();
+	    	setPoint();
+
+	    }
+	    function showNext() {
+	    	console.log('向左滑动成功');
+	    	// 先改变信号量
+	    	prev = idx;
+	    	idx = next;
+	    	next++;
+	    	if (next > imagesLis.length - 1) {
+	    		next = 0;
+	    	}
+
+	    	// 加上过渡
+	    	imagesLis[idx].style.transition = "all 0.3s ease 0s";
+	    	imagesLis[prev].style.transition = "all 0.3s ease 0s";
+	    	imagesLis[next].style.transition = "none";
+
+	    	// 移动
+	    	changePic();
+	    	setPoint();
+
+	    }
+
+	    function changePic() {
+	    	imagesLis[idx].style.webkitTransform = "translateX(0px)";
+	    	imagesLis[next].style.webkitTransform = "translateX("+ windowWidth +"px)";
+	    	imagesLis[prev].style.webkitTransform = "translateX("+ -windowWidth +"px)";
+	    }
+	    function setPoint() {
+	    	for (var i = 0; i < circleLis.length; i++) {
+	    		circleLis[i].className = "";
+	    	}
+	    	circleLis[idx].className = "cur";
+	    }
+	}
+</script>
+</body>
+</html>
